@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python local settings
+*.sqlite3
+*.db
+
+# VS Code settings
+.vscode/
+
+# Mac OS files
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Model files (optional: you may want to keep large models out)
+models/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE or Editor folders
+.idea/
+*.sublime-project
+*.sublime-workspace
