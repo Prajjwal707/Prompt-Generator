@@ -1,45 +1,55 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
 
-# Virtual environment
+# Virtual environments
 venv/
-env/
-.venv/
 .env/
+.env.*
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Python local settings
-*.sqlite3
-*.db
-
-# VS Code settings
+# IDE / OS
 .vscode/
-
-# Mac OS files
+.idea/
 .DS_Store
 
-# Logs and temporary files
+# Logs
 *.log
-*.tmp
-*.bak
 
-# Model files (optional: you may want to keep large models out)
-models/
-
-# Coverage reports
-.coverage
-htmlcov/
-
-# Distribution / packaging
+# Build / dist
 build/
 dist/
 *.egg-info/
 
-# IDE or Editor folders
-.idea/
-*.sublime-project
-*.sublime-workspace
+# Data / Models (important for your project)
+models/
+*.parquet
+*.json
+
+# Docker (optional ignore if needed)
+docker-compose.override.yml
+
+# Java (you accidentally have these)
+*.class
+
+# Zip files
+*.zip
+
+# Testing
+.pytest_cache/
+
+# Temporary files
+*.tmp
+
+# Cache
+.cache/
+
+# Nginx / deployment (optional)
+nginx/
+
+# Ignore sensitive config
+config/settings.py
+
+# Ignore large datasets
+alpaca_data_cleaned.json

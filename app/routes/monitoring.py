@@ -7,8 +7,12 @@ from flask import Blueprint, jsonify
 import logging
 from datetime import datetime, timedelta
 
-from monitoring_utils.monitor import get_request_monitor, get_model_monitor, get_health_monitor
 from utils.auth import require_api_key, optional_api_key
+from utils.model_loader import get_model_loader
+from services.prompt_enhancer import get_prompt_enhancer
+from utils.cache import get_prompt_cache
+import psutil
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +23,33 @@ monitoring_bp = Blueprint('monitoring', __name__)
 def health_check():
     """Comprehensive health check endpoint."""
     try:
-        health_monitor = get_health_monitor()
-        health_status = health_monitor.health_check()
+        # Get system stats
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Get model status
+        model_loader = get_model_loader()
+        model_loaded = model_loader.is_loaded()
+        
+        # Get cache stats
+        cache = get_prompt_cache()
+        cache_stats = cache.get_stats()
+        
+        health_status = {
+            'status': 'healthy' if model_loaded else 'degraded',
+            'timestamp': datetime.now().isoformat(),
+            'system': {
+                'cpu_percent': cpu_percent,
+                'memory_percent': memory.percent,
+                'disk_usage_percent': (disk.used / disk.total) * 100
+            },
+            'model': {
+                'loaded': model_loaded,
+                'model_path': model_loader.model_path
+            },
+            'cache': cache_stats
+        }
         
         return jsonify({
             'success': True,
@@ -41,20 +70,34 @@ def health_check():
 def get_metrics():
     """Get application metrics and statistics."""
     try:
-        # Get all monitors
-        request_monitor = get_request_monitor()
-        model_monitor = get_model_monitor()
-        health_monitor = get_health_monitor()
+        # Get basic metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
         
-        # Collect metrics
+        # Get model status
+        model_loader = get_model_loader()
+        model_loaded = model_loader.is_loaded()
+        
+        # Get cache stats
+        cache = get_prompt_cache()
+        cache_stats = cache.get_stats()
+        
         metrics = {
             'timestamp': datetime.now().isoformat(),
-            'performance': request_monitor.get_performance_stats(),
-            'errors': request_monitor.get_error_stats(),
-            'endpoints': request_monitor.get_endpoint_stats(),
-            'model': model_monitor.get_model_stats(),
-            'system': health_monitor.get_system_stats(),
-            'application': health_monitor.get_application_stats()
+            'system': {
+                'cpu_percent': cpu_percent,
+                'memory_percent': memory.percent,
+                'memory_available_gb': memory.available / (1024**3),
+                'disk_usage_percent': (disk.used / disk.total) * 100,
+                'disk_free_gb': disk.free / (1024**3)
+            },
+            'model': {
+                'loaded': model_loaded,
+                'model_path': model_loader.model_path
+            },
+            'cache': cache_stats,
+            'uptime_seconds': time.time()  # Simple uptime
         }
         
         return jsonify({
@@ -71,169 +114,20 @@ def get_metrics():
             'message': str(e)
         }), 500
 
-@monitoring_bp.route('/metrics/performance', methods=['GET'])
-@require_api_key
-def get_performance_metrics():
-    """Get performance-specific metrics."""
-    try:
-        request_monitor = get_request_monitor()
-        performance_stats = request_monitor.get_performance_stats()
-        
-        return jsonify({
-            'success': True,
-            'performance': performance_stats
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in get_performance_metrics: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get performance metrics',
-            'message': str(e)
-        }), 500
-
-@monitoring_bp.route('/metrics/errors', methods=['GET'])
-@require_api_key
-def get_error_metrics():
-    """Get error statistics."""
-    try:
-        request_monitor = get_request_monitor()
-        error_stats = request_monitor.get_error_stats()
-        
-        return jsonify({
-            'success': True,
-            'errors': error_stats
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in get_error_metrics: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get error metrics',
-            'message': str(e)
-        }), 500
-
-@monitoring_bp.route('/metrics/hourly', methods=['GET'])
-@require_api_key
-def get_hourly_metrics():
-    """Get hourly statistics for the last 24 hours."""
-    try:
-        request_monitor = get_request_monitor()
-        hourly_stats = request_monitor.get_hourly_stats(hours=24)
-        
-        return jsonify({
-            'success': True,
-            'hourly_stats': hourly_stats,
-            'hours_covered': len(hourly_stats)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in get_hourly_metrics: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get hourly metrics',
-            'message': str(e)
-        }), 500
-
-@monitoring_bp.route('/metrics/model', methods=['GET'])
-@require_api_key
-def get_model_metrics():
-    """Get model performance metrics."""
-    try:
-        model_monitor = get_model_monitor()
-        model_stats = model_monitor.get_model_stats()
-        
-        return jsonify({
-            'success': True,
-            'model_metrics': model_stats
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in get_model_metrics: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get model metrics',
-            'message': str(e)
-        }), 500
-
-@monitoring_bp.route('/system/info', methods=['GET'])
-@require_api_key
-def get_system_info():
-    """Get detailed system information."""
-    try:
-        health_monitor = get_health_monitor()
-        system_stats = health_monitor.get_system_stats()
-        app_stats = health_monitor.get_application_stats()
-        
-        return jsonify({
-            'success': True,
-            'system': system_stats,
-            'application': app_stats
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in get_system_info: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get system info',
-            'message': str(e)
-        }), 500
-
-@monitoring_bp.route('/logs/cleanup', methods=['POST'])
-@require_api_key
-def cleanup_logs():
-    """Clean up old log files."""
-    try:
-        from logging.monitor import RequestMonitor
-        
-        # Get days parameter from request
-        from flask import request
-        data = request.get_json() or {}
-        days = data.get('days', 30)
-        
-        if not isinstance(days, int) or days < 1:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid days parameter. Must be a positive integer.'
-            }), 400
-        
-        # Perform cleanup
-        request_monitor = get_request_monitor()
-        request_monitor.cleanup_old_logs(days)
-        
-        return jsonify({
-            'success': True,
-            'message': f'Cleaned up log files older than {days} days'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in cleanup_logs: {e}")
-        
-        return jsonify({
-            'success': False,
-            'error': 'Failed to cleanup logs',
-            'message': str(e)
-        }), 500
-
+# Simplified monitoring endpoints
 @monitoring_bp.route('/status', methods=['GET'])
 @optional_api_key
 def get_status():
     """Get basic application status."""
     try:
-        health_monitor = get_health_monitor()
-        request_monitor = get_request_monitor()
+        model_loader = get_model_loader()
+        cache = get_prompt_cache()
         
-        # Basic status information
         status = {
-            'status': 'operational',
+            'status': 'operational' if model_loader.is_loaded() else 'degraded',
             'timestamp': datetime.now().isoformat(),
-            'uptime_seconds': health_monitor.get_application_stats()['uptime_seconds'],
-            'total_requests': request_monitor.get_performance_stats()['total_requests']
+            'uptime_seconds': time.time(),
+            'cache_entries': cache.get_stats()['total_entries']
         }
         
         return jsonify({

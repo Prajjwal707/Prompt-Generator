@@ -19,51 +19,19 @@ class PromptTemplates:
         """Initialize task-specific prompt templates."""
         return {
             "website": {
-                "system_prompt": """You are an expert web developer and prompt engineer with extensive experience in modern web technologies, responsive design, and user experience optimization.
-
-Your task is to transform basic user requests into comprehensive, detailed prompts that will generate high-quality web development instructions.
-
-Focus on:
-- Modern web technologies (HTML5, CSS3, JavaScript frameworks)
-- Responsive design and mobile-first approach
-- Performance optimization
-- Accessibility standards (WCAG)
-- SEO best practices
-- Security considerations
-- User experience and interface design""",
+                "system_prompt": """Expert web developer. Generate concise, structured content.""",
                 
-                "enhancement_template": """Create a detailed web development prompt that includes:
+                "enhancement_template": """Expand this web request into structured content:
 
-**TECHNICAL REQUIREMENTS:**
-- Specify HTML5 semantic elements
-- Define CSS framework (Bootstrap, Tailwind, or custom)
-- JavaScript framework/library requirements
-- Responsive breakpoints and mobile considerations
-- Performance optimization requirements
+User: {user_input}
 
-**FUNCTIONALITY:**
-- User interaction features
-- Form validation and handling
-- Data storage requirements
-- API integrations needed
-- Browser compatibility requirements
+Generate:
+1. Pages needed
+2. Key features per page
+3. Tech stack recommendations
+4. Design requirements
 
-**DESIGN & UX:**
-- Visual design specifications
-- Color scheme and typography
-- Layout structure and navigation
-- User flow and interaction patterns
-- Accessibility features
-
-**DEPLOYMENT & MAINTENANCE:**
-- Hosting requirements
-- Build tools and bundling
-- Testing requirements
-- Documentation needs
-
-Original Request: {user_input}
-
-Enhanced Web Development Prompt:""",
+Return structured content only.""",
                 
                 "examples": [
                     "Create a responsive e-commerce website with product catalog",
@@ -73,50 +41,20 @@ Enhanced Web Development Prompt:""",
             },
             
             "image": {
-                "system_prompt": """You are an expert graphic designer, AI imaging specialist, and creative director with deep knowledge of visual arts, composition, and digital image manipulation.
-
-Your task is to transform basic image requests into detailed, professional prompts that will generate high-quality visual content.
-
-Focus on:
-- Artistic style and visual aesthetics
-- Technical specifications and parameters
-- Composition and framing
-- Lighting and color theory
-- Subject matter and context
-- Output format and resolution requirements""",
+                "system_prompt": """Expert designer. Generate concise visual descriptions.""",
                 
-                "enhancement_template": """Create a detailed image generation/editing prompt that includes:
+                "enhancement_template": """Expand this image request into structured visual content:
 
-**VISUAL STYLE:**
-- Art style (photorealistic, illustration, abstract, etc.)
-- Color palette and mood
-- Lighting conditions and atmosphere
-- Texture and material specifications
-- Period or era reference
+User: {user_input}
 
-**COMPOSITION:**
-- Subject placement and framing
-- Perspective and camera angle
-- Background and foreground elements
-- Depth of field and focus
-- Rule of thirds and visual balance
+Generate:
+1. Art style and mood
+2. Subject details
+3. Color palette
+4. Composition guidelines
+5. Technical specs
 
-**TECHNICAL SPECS:**
-- Image dimensions and resolution
-- File format requirements
-- Quality settings
-- Specific software or AI model parameters
-- Post-processing requirements
-
-**CONTENT DETAILS:**
-- Subject description and characteristics
-- Emotional tone and narrative
-- Symbolism or metaphor elements
-- Cultural or contextual references
-
-Original Request: {user_input}
-
-Enhanced Image Prompt:""",
+Return structured visual content only.""",
                 
                 "examples": [
                     "Create a futuristic cityscape at sunset",
@@ -125,52 +63,45 @@ Enhanced Image Prompt:""",
                 ]
             },
             
-            "ppt": {
-                "system_prompt": """You are an expert presentation designer, communication specialist, and corporate trainer with extensive experience in creating impactful PowerPoint presentations.
-
-Your task is to transform basic presentation requests into comprehensive prompts that will generate professional, engaging slide decks.
-
-Focus on:
-- Content structure and organization
-- Visual design principles
-- Audience engagement strategies
-- Information hierarchy
-- Storytelling techniques
-- Professional presentation standards""",
+            "code": {
+                "system_prompt": """Expert software engineer. Generate concise technical specifications.""",
                 
-                "enhancement_template": """Create a detailed presentation development prompt that includes:
+                "enhancement_template": """Expand this code request into structured technical content:
 
-**CONTENT STRUCTURE:**
-- Presentation outline and flow
-- Key messages and talking points
-- Data visualization needs
-- Story arc and narrative structure
-- Call-to-action elements
+User: {user_input}
 
-**VISUAL DESIGN:**
-- Template and theme specifications
-- Color scheme and typography
-- Layout consistency
-- Image and graphic requirements
-- Animation and transition effects
+Generate:
+1. Language and framework
+2. Architecture overview
+3. Core functions/classes
+4. Key algorithms
+5. Testing approach
 
-**AUDIENCE CONSIDERATIONS:**
-- Target audience analysis
-- Knowledge level and expertise
-- Engagement strategies
-- Q&A preparation
-- Follow-up materials
+Return structured technical content only.""",
+                
+                "examples": [
+                    "Create a REST API for user management",
+                    "Build a data processing pipeline",
+                    "Develop a machine learning model trainer"
+                ]
+            },
+            
+            "ppt": {
+                "system_prompt": """Expert presentation designer. Generate concise slide content.""",
+                
+                "enhancement_template": """Expand this presentation request into structured slide content:
 
-**DELIVERY REQUIREMENTS:**
-- Presentation length and timing
-- Speaker notes and prompts
-- Interactive elements
-- Handout materials
-- Technical requirements
+User: {user_input}
 
-Original Request: {user_input}
+Generate:
+1. Compelling title
+2. 10-slide outline
+3. Key content per slide
+4. Visual design theme
+5. Color scheme
+6. Closing structure
 
-Enhanced Presentation Prompt:""",
+Return structured presentation content only.""",
                 
                 "examples": [
                     "Create a business proposal for a new product launch",
@@ -180,46 +111,22 @@ Enhanced Presentation Prompt:""",
             },
             
             "general": {
-                "system_prompt": """You are an expert prompt engineer and AI communication specialist with extensive experience in optimizing human-AI interactions across various domains.
-
-Your task is to transform basic user requests into clear, detailed, and effective prompts that will generate optimal AI responses.
-
-Focus on:
-- Clarity and specificity
-- Context and constraints
-- Expected output format
-- Success criteria
-- Relevant background information""",
+                "system_prompt": """Expert prompt engineer. Generate concise, structured content.""",
                 
-                "enhancement_template": """Create an enhanced prompt that includes:
+                "enhancement_template": """Enhance the following prompt to make it clear, specific, and optimized for AI generation.
 
-**CONTEXT:**
-- Background information and relevant details
-- Specific domain or field context
-- Target audience or use case
-- Any relevant constraints or limitations
+User Prompt:
+{user_input}
 
-**REQUIREMENTS:**
-- Specific deliverables expected
-- Format and structure requirements
-- Quality standards and criteria
-- Key points to address
+Enhancement Goals:
 
-**CONSTRAINTS:**
-- Length limitations
-- Style or tone requirements
-- Technical specifications
-- Ethical considerations
+• Clarify intent
+• Add missing details
+• Specify output format
+• Improve precision
+• Keep it concise but structured
 
-**SUCCESS CRITERIA:**
-- What makes a successful response
-- Evaluation metrics
-- Expected outcomes
-- Follow-up actions needed
-
-Original Request: {user_input}
-
-Enhanced Prompt:""",
+Return only the enhanced prompt.""",
                 
                 "examples": [
                     "Explain quantum computing in simple terms",

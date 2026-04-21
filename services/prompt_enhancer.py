@@ -1,38 +1,183 @@
 """
-Prompt enhancement service for PromptGenius.
-Combines templates with AI model to generate enhanced prompts.
+Optimized prompt enhancer service for PromptGenius.
+Fast enhancement with task-specific token limits and caching.
 """
 
+import json
 import logging
-from typing import Dict, Any, Optional
 import time
+import hashlib
+from typing import Dict, Any, Optional
 import re
 
 from utils.model_loader import get_model_loader
-from services.prompt_templates import get_prompt_templates
-from config.model_config import get_config
+from structure.structure_builder import get_structure_builder
+from utils.cache import get_prompt_cache
+from structure.fast_expander import get_fast_expander
 
 logger = logging.getLogger(__name__)
 
 class PromptEnhancer:
-    """Service for enhancing user prompts using templates and AI."""
+    """Optimized service for enhancing user prompts."""
     
     def __init__(self):
         self.model_loader = get_model_loader()
-        self.templates = get_prompt_templates()
-        self.config = get_config()
+        self.structure_builder = get_structure_builder()
+        self.cache = get_prompt_cache()
+        self.fast_expander = get_fast_expander()
         
-        # Enhancement statistics
-        self.stats = {
-            "total_enhancements": 0,
-            "task_type_counts": {},
-            "average_enhancement_time": 0.0,
-            "error_count": 0
+        # Task-specific token limits
+        self.token_limits = {
+            "general": 120,
+            "image": 80,
+            "code": 180,
+            "ppt": 200,
+            "website": 180
         }
+        
+        logger.info("PromptEnhancer initialized")
+    
+    
+    def _expand_short_prompt(self, prompt: str) -> str:
+        """Expand very short prompts (<5 words) for better context."""
+        words = prompt.strip().split()
+        if len(words) < 5:
+            expansion_prompts = {
+                "general": "Create a detailed and comprehensive response about: {prompt}",
+                "image": "Generate a detailed visual description for: {prompt}",
+                "code": "Develop a complete technical solution for: {prompt}",
+                "ppt": "Create a professional presentation about: {prompt}",
+                "website": "Design a complete website project for: {prompt}"
+            }
+            return expansion_prompts.get("general", "Create a detailed response about: {prompt}").format(prompt=prompt)
+        return prompt
+    
+    def _build_enhancement_prompt(self, user_prompt: str, task_type: str) -> str:
+        """Build the enhancement prompt for the LLM."""
+        return f"""
+You are an expert AI system.
+
+IMPORTANT:
+- You MUST return valid JSON
+- NO explanation
+- NO extra text
+- ONLY JSON
+
+Task: {task_type}
+
+Input: {user_prompt}
+
+Output format strictly:
+
+{{
+  "title": "...",
+  "pages": "...",
+  "features": "...",
+  "tech_stack": "...",
+  "design": "...",
+  "performance": "..."
+}}
+"""
+    
+    def _smart_fallback(self, text: str, task_type: str):
+        text = text.strip()
+
+        if task_type == "website":
+            return {
+                "title": text.split("\n")[0][:80],
+                "pages": text,
+                "features": text,
+                "tech_stack": "React, Node.js, MongoDB",
+                "design": text,
+                "performance": "Optimized for speed and responsiveness",
+                "page_count": "5-8",
+                "framework": "React/Next.js"
+            }
+
+        elif task_type == "image":
+            return {
+                "title": text.split("\n")[0][:80],
+                "style": text,
+                "subject": text,
+                "colors": text,
+                "composition": text,
+                "specs": "High quality, detailed rendering"
+            }
+
+        elif task_type == "code":
+            return {
+                "title": text.split("\n")[0][:80],
+                "architecture": text,
+                "components": text,
+                "algorithms": text,
+                "testing": "Unit + integration tests",
+                "performance": "Optimized logic"
+            }
+
+        elif task_type == "ppt":
+            return {
+                "title": text.split("\n")[0][:80],
+                "slides": text,
+                "design_theme": "Modern",
+                "color_scheme": "Professional",
+                "typography": "Clean sans-serif",
+                "graphics": "Minimal",
+                "closing": "Summary"
+            }
+
+        else:
+            return {
+                "title": text.split("\n")[0][:80],
+                "context": text,
+                "requirements": text,
+                "format": "Structured",
+                "success": "Clear output",
+                "constraints": "None"
+            }
+        
+    def _extract_title(self, text: str) -> str:
+        """Extract title from response text."""
+        lines = text.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line and len(line) < 100:
+                # Remove common prefixes
+                line = re.sub(r'^(Title:|Prompt:|Enhanced:)', '', line).strip()
+                if line and not line.lower().startswith(('here is', 'the enhanced', 'below is')):
+                    return line
+        return "Enhanced Prompt"
+    
+        
+    def _extract_list_content(self, text: str, section_name: str) -> str:
+        """Extract list content from response."""
+        lines = text.split('\n')
+        list_items = []
+        
+        for line in lines:
+            if re.match(r'^\d+\.', line) or line.startswith('-') or line.startswith('*'):
+                list_items.append(line.strip())
+        
+        return '\n'.join(list_items[:10]) if list_items else ""
+    
+    def _generate_default_slides(self, response: str) -> str:
+        """Generate default slide structure based on response."""
+        default_slides = [
+            "1. Title & Introduction",
+            "2. Problem Statement",
+            "3. Solution Overview", 
+            "4. Key Features/Benefits",
+            "5. Implementation Details",
+            "6. Examples/Case Studies",
+            "7. Results & Outcomes",
+            "8. Timeline & Milestones",
+            "9. Resources & Requirements",
+            "10. Next Steps & Q&A"
+        ]
+        return '\n'.join(default_slides)
     
     def enhance_prompt(self, user_input: str, task_type: str = "general") -> Dict[str, Any]:
         """
-        Enhance a user prompt using templates and AI model.
+        Enhance a user prompt using optimized LLM generation.
         
         Args:
             user_input: Original user prompt
@@ -44,240 +189,89 @@ class PromptEnhancer:
         start_time = time.time()
         
         try:
-            # Validate inputs
-            if not user_input or not user_input.strip():
-                raise ValueError("User input cannot be empty")
+            # Check cache first
+            cached_result = self.cache.get(user_input, task_type)
+            if cached_result:
+                logger.info(f"Cache hit for prompt: {user_input[:50]}...")
+                return {
+                    "success": True,
+                    "enhanced_prompt": cached_result,
+                    "task_type": task_type,
+                    "processing_time": 0.001,
+                    "cached": True
+                }
             
-            if not self.templates.validate_task_type(task_type):
-                logger.warning(f"Unknown task type: {task_type}, using general")
-                task_type = "general"
+            # Try fast expansion for short prompts
+            if self.fast_expander.should_use_fast_expansion(user_input):
+                fast_result = self.fast_expander.expand_short_prompt(user_input, task_type)
+                if fast_result:
+                    # Cache the fast result
+                    self.cache.set(user_input, task_type, fast_result)
+                    logger.info(f"Fast expanded '{user_input}' in {time.time() - start_time:.3f}s")
+                    return {
+                        "success": True,
+                        "enhanced_prompt": fast_result,
+                        "task_type": task_type,
+                        "processing_time": 0.001,
+                        "cached": False,
+                        "fast_path": True
+                    }
             
-            # Pre-process user input
-            cleaned_input = self._preprocess_input(user_input)
+            # Expand short prompts if needed
+            expanded_prompt = self._expand_short_prompt(user_input)
             
-            # Apply template
-            template_prompt = self.templates.apply_template(cleaned_input, task_type)
+            # Build enhancement prompt
+            enhancement_prompt = self._build_enhancement_prompt(expanded_prompt, task_type)
             
-            # Generate enhanced prompt using AI model
-            enhanced_prompt = self.model_loader.generate_prompt(template_prompt, task_type)
+            # Get task-specific token limit with dynamic optimization
+            base_tokens = self.token_limits.get(task_type, 120)
+            max_tokens = min(len(user_input.split()) * 5, base_tokens * 2, 400)
             
-            # Post-process the output
-            final_prompt = self._postprocess_output(enhanced_prompt)
+            # Generate enhanced content
+            enhanced_content = self.model_loader.generate_response(
+                enhancement_prompt, 
+                max_tokens=max_tokens
+            )
             
-            # Calculate enhancement time
-            enhancement_time = time.time() - start_time
+            print("RAW MODEL OUTPUT:\n", enhanced_content)
             
-            # Update statistics
-            self._update_stats(task_type, enhancement_time, success=True)
+            # Parse JSON response
+            try:
+                structured_content = json.loads(enhanced_content)
+            except:
+                # Smart fallback (not dumb fallback)
+                structured_content = self._smart_fallback(enhanced_content, task_type)
             
-            # Prepare response
-            response = {
+            # Build final structured prompt
+            final_prompt = self.structure_builder.build_structure(task_type, structured_content)
+            
+            # Cache the result
+            self.cache.set(user_input, task_type, final_prompt)
+            
+            processing_time = time.time() - start_time
+            
+            logger.info(f"Enhanced {task_type} prompt in {processing_time:.2f}s")
+            
+            return {
                 "success": True,
-                "original_prompt": user_input,
                 "enhanced_prompt": final_prompt,
                 "task_type": task_type,
-                "enhancement_time": round(enhancement_time, 2),
-                "prompt_length": len(final_prompt),
-                "template_used": task_type,
-                "model_info": self.model_loader.get_model_info()
+                "processing_time": processing_time,
+                "cached": False,
+                "tokens_used": len(enhanced_content.split())
             }
             
-            logger.info(f"Enhanced prompt for {task_type} in {enhancement_time:.2f}s")
-            return response
-            
         except Exception as e:
-            enhancement_time = time.time() - start_time
-            self._update_stats(task_type, enhancement_time, success=False)
-            
+            processing_time = time.time() - start_time
             logger.error(f"Prompt enhancement failed: {e}")
             
             return {
                 "success": False,
                 "error": str(e),
-                "original_prompt": user_input,
                 "task_type": task_type,
-                "enhancement_time": round(enhancement_time, 2)
+                "processing_time": processing_time,
+                "cached": False
             }
-    
-    def _preprocess_input(self, user_input: str) -> str:
-        """Pre-process user input before enhancement."""
-        if not user_input:
-            return ""
-        
-        # Clean up the input
-        cleaned = user_input.strip()
-        
-        # Remove excessive whitespace
-        cleaned = re.sub(r'\s+', ' ', cleaned)
-        
-        # Ensure proper capitalization (first letter)
-        if cleaned and not cleaned[0].isupper():
-            cleaned = cleaned[0].upper() + cleaned[1:]
-        
-        # Ensure proper punctuation at the end
-        if cleaned and cleaned[-1] not in '.!?':
-            cleaned += '.'
-        
-        return cleaned
-    
-    def _postprocess_output(self, enhanced_prompt: str) -> str:
-        """Post-process the AI-generated enhanced prompt."""
-        if not enhanced_prompt:
-            return ""
-        
-        # Remove common AI artifacts
-        lines = enhanced_prompt.split('\n')
-        cleaned_lines = []
-        
-        skip_patterns = [
-            r'^Enhanced Prompt:',
-            r'^Enhanced Web Development Prompt:',
-            r'^Enhanced Image Prompt:',
-            r'^Enhanced Presentation Prompt:',
-            r'^Here is the enhanced prompt:',
-            r'^.*prompt.*:$',
-            r'^Original Request:',
-            r'^.*enhanced.*prompt.*$'
-        ]
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Skip lines that match artifact patterns
-            skip_line = False
-            for pattern in skip_patterns:
-                if re.match(pattern, line, re.IGNORECASE):
-                    skip_line = True
-                    break
-            
-            if not skip_line:
-                cleaned_lines.append(line)
-        
-        # Join lines and clean up
-        result = '\n'.join(cleaned_lines)
-        
-        # Remove excessive whitespace
-        while '\n\n\n' in result:
-            result = result.replace('\n\n\n', '\n\n')
-        
-        # Remove excessive spaces
-        result = re.sub(r' +', ' ', result)
-        
-        return result.strip()
-    
-    def _update_stats(self, task_type: str, enhancement_time: float, success: bool) -> None:
-        """Update enhancement statistics."""
-        self.stats["total_enhancements"] += 1
-        
-        if task_type not in self.stats["task_type_counts"]:
-            self.stats["task_type_counts"][task_type] = 0
-        self.stats["task_type_counts"][task_type] += 1
-        
-        # Update average enhancement time
-        total_time = self.stats["average_enhancement_time"] * (self.stats["total_enhancements"] - 1)
-        self.stats["average_enhancement_time"] = (total_time + enhancement_time) / self.stats["total_enhancements"]
-        
-        if not success:
-            self.stats["error_count"] += 1
-    
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get enhancement statistics."""
-        stats = self.stats.copy()
-        
-        # Add derived statistics
-        if stats["total_enhancements"] > 0:
-            stats["success_rate"] = ((stats["total_enhancements"] - stats["error_count"]) / 
-                                    stats["total_enhancements"]) * 100
-        else:
-            stats["success_rate"] = 0.0
-        
-        # Add model information
-        stats["model_loaded"] = self.model_loader.is_loaded()
-        stats["available_task_types"] = self.templates.list_task_types()
-        
-        return stats
-    
-    def validate_prompt(self, prompt: str) -> Dict[str, Any]:
-        """Validate a prompt for quality and completeness."""
-        if not prompt:
-            return {"valid": False, "errors": ["Prompt cannot be empty"]}
-        
-        errors = []
-        warnings = []
-        
-        # Length checks
-        if len(prompt) < 10:
-            errors.append("Prompt is too short (minimum 10 characters)")
-        elif len(prompt) > 2000:
-            warnings.append("Prompt is very long, consider being more concise")
-        
-        # Content checks
-        if prompt.isupper():
-            warnings.append("Avoid using all caps")
-        
-        # Check for basic structure
-        if not any(char in prompt for char in '.!?'):
-            warnings.append("Consider ending with proper punctuation")
-        
-        # Check for ambiguous terms
-        ambiguous_terms = ["thing", "stuff", "something", "anything", "etc"]
-        for term in ambiguous_terms:
-            if term.lower() in prompt.lower():
-                warnings.append(f"Ambiguous term '{term}' detected - be more specific")
-        
-        return {
-            "valid": len(errors) == 0,
-            "errors": errors,
-            "warnings": warnings,
-            "length": len(prompt),
-            "word_count": len(prompt.split())
-        }
-    
-    def batch_enhance(self, prompts: list, task_type: str = "general") -> list:
-        """Enhance multiple prompts in batch."""
-        results = []
-        
-        for i, prompt in enumerate(prompts):
-            try:
-                result = self.enhance_prompt(prompt, task_type)
-                result["batch_index"] = i
-                results.append(result)
-            except Exception as e:
-                results.append({
-                    "success": False,
-                    "error": str(e),
-                    "batch_index": i,
-                    "original_prompt": prompt
-                })
-        
-        return results
-    
-    def get_enhancement_suggestions(self, prompt: str) -> list:
-        """Get suggestions for improving a prompt."""
-        suggestions = []
-        
-        validation = self.validate_prompt(prompt)
-        
-        # Add suggestions based on validation
-        for error in validation["errors"]:
-            suggestions.append(f"Fix: {error}")
-        
-        for warning in validation["warnings"]:
-            suggestions.append(f"Consider: {warning}")
-        
-        # Add general enhancement suggestions
-        if len(prompt.split()) < 10:
-            suggestions.append("Add more context and details")
-        
-        if not any(word in prompt.lower() for word in ["because", "since", "due to"]):
-            suggestions.append("Explain the reasoning or context")
-        
-        if not any(word in prompt.lower() for word in ["format", "structure", "output"]):
-            suggestions.append("Specify desired output format")
-        
-        return suggestions
 
 # Global enhancer instance
 _prompt_enhancer = None

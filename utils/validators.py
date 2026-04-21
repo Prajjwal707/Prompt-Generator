@@ -50,7 +50,7 @@ def validate_enhance_request(prompt: str, task_type: str) -> Dict[str, Any]:
             warnings.append("Prompt contains excessive repetition")
     
     # Validate task type
-    valid_task_types = ['website', 'image', 'ppt', 'general']
+    valid_task_types = ['general', 'image', 'code', 'ppt', 'website']
     if not task_type:
         errors.append("Task type cannot be empty")
     elif task_type not in valid_task_types:
@@ -190,7 +190,7 @@ def validate_batch_request(prompts: List[str], task_type: str) -> Dict[str, Any]
             errors.append(f"Prompt at index {i} is too long (maximum 2000 characters)")
     
     # Validate task type
-    valid_task_types = ['website', 'image', 'ppt', 'general']
+    valid_task_types = ['general', 'image', 'code', 'ppt', 'website']
     if task_type not in valid_task_types:
         errors.append(f"Invalid task type. Must be one of: {', '.join(valid_task_types)}")
     
